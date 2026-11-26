@@ -86,7 +86,7 @@ If `trunk` advanced and touched files or APIs your remaining work depends on, in
 Run inside your agent worktree:
 
 1. Commit all work so `git status --porcelain` is empty.
-2. Rebase onto local `<trunk>`:
+2. Record your pre-rebase base (`BASE=$(git merge-base HEAD <trunk>)`) and rebase onto local `<trunk>`:
 
    ```sh
    git rebase <trunk>
@@ -94,8 +94,11 @@ Run inside your agent worktree:
 
    If this repository coordinates through a shared remote rather than local-only agents, pass `--fetch` to `check-stale` first; `git fetch origin` updates `origin/<trunk>`, not local `<trunk>`, so confirm with the user before fast-forwarding local `<trunk>` to `origin/<trunk>`.
 3. If conflicts occur, read [references/conflict-and-recovery.md](references/conflict-and-recovery.md) and resolve by **intent**, remembering that under rebase `ours` is `trunk` and `theirs` is your commit.
-4. Run the repository's build, tests, and linters after rebase. A clean text merge with failing tests is a semantic conflict; fix it on your branch before Phase 4.
-5. Re-verify assumptions (functions, paths, contracts) your change depends on still exist in the rebased tree.
+4. Check for file overlap and semantic conflicts when `trunk` moved (`BASE != <trunk>`):
+   - Compare `git diff --name-only "$BASE"..<trunk>` against files changed on your branch and any adjacent shared middleware, store/projection, or contract boundaries.
+   - If `trunk` touched any overlapping file or adjacent boundary, inspect those foreign commits (`git log -p "$BASE"..<trunk> -- <files>`) for semantic conflicts (duplicate imports, dropped fields, changed contracts or assumptions) even when the text rebase succeeded without conflict markers.
+5. Run the repository's build, tests, and linters after rebase. A clean text merge with failing tests is a semantic conflict; fix it on your branch before Phase 4. When step 4 found overlap on production code, do not rely on pre-rebase unit test results: re-run full build, typecheck, and the matching integration or browser suite on the rebased tree before Phase 4.
+6. Re-verify assumptions (functions, paths, contracts) your change depends on still exist in the rebased tree.
 
 ## Phase 4: Integrate onto trunk
 
